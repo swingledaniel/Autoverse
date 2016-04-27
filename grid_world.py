@@ -10,7 +10,7 @@ class World():
 		self.xdim = xdim
 		self.ydim = ydim
 		self.mate_dif_limit = mate_dif_limit
-		self.vegetation = 0.5*np.ones((xdim,ydim))
+		self.vegetation = 1.0*np.ones((xdim,ydim))
 		self.vegetation_growth_rate = vegetation_growth_rate
 		#self.dead = np.zeros(xdim,ydim)
 		self.crittermap = [[[] for j in xrange(ydim)] for i in xrange(xdim)]
@@ -83,38 +83,47 @@ class Critter():
 	def breed(self,other):
 		self.energy -= 0.25
 		other.energy -= 0.25
-		new_genes = [(g1+g2)/2-0.05+0.1*random.random() for g1,g2 in zip(self.genes,other.genes)]
+		new_genes = [random.choice([g1,g2,(g1+g2)/2])-0.05+0.1*random.random() for g1,g2 in zip(self.genes,other.genes)]
 		return Critter(new_genes,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
 
-def run():
+def run(steps_per_redraw=1):
 	xdim = 200
 	ydim = 200
-	num_critters = 500
+	num_critters = 100
 	initial_genes = [.4]
 	mate_dif_limit = 0.1
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate)
 
-	fig, (ax1,ax2,ax3) = plt.subplots(1,3)
+	fig, (ax1,ax2,ax3,ax4) = plt.subplots(1,4)
 	times = [-1.]*10
 	pops = []
+	gene_aves = []
 
 	def update(i):
 		t = time.time()-start_time
-		print "\nStep: %d, Time: %.2f seconds, Rate: %.2f steps/second" % (i, t, 10./(t-times[-10]))
+		print "\nStep: %d, Time: %.2f seconds, Rate: %.2f steps/second" % (i*steps_per_redraw, t, 10.*steps_per_redraw/(t-times[-10]))
 		times.append(t)
 		critter_grid, genes = world.critter_stats(pops)
 		ax1.clear()
 		ax1.imshow(np.maximum(world.vegetation,critter_grid),cmap='gist_earth',interpolation='nearest')
 		ax2.clear()
 		ax2.hist(genes,50)
-		ax2.axvline(x=sum(genes)/len(genes),linewidth=4, color='r')
+		gene_ave = sum(genes)/len(genes)
+		gene_aves.append(gene_ave)
+		ax2.axvline(x=gene_ave,linewidth=4, color='r')
 		ax3.clear()
 		ax3.plot(range(len(pops)),pops)
-		world.step()
+		ax3.set_title('Population')
+		ax4.clear()
+		ax4.plot(range(len(gene_aves)),gene_aves)
+		ax4.set_title('Gene Average')
+		for i in xrange(steps_per_redraw):
+			world.step()
 
+	start_time = time.time()
 	a = anim.FuncAnimation(fig, update, frames=100000, repeat=False)
 	plt.show()
 
-start_time = time.time()
-run()
+
+run(100)
