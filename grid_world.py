@@ -7,6 +7,7 @@ from collections import Counter
 
 class World():
 	def __init__(self,xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate):
+		self.num_genes = len(initial_genes)
 		self.xdim = xdim
 		self.ydim = ydim
 		self.mate_dif_limit = mate_dif_limit
@@ -16,7 +17,7 @@ class World():
 		self.crittermap = [[[] for j in xrange(ydim)] for i in xrange(xdim)]
 		for i in xrange(num_critters):
 			x,y = random.randint(0,xdim-1),random.randint(0,ydim-1)
-			self.crittermap[x][y].append(Critter(initial_genes,0,0))
+			self.crittermap[x][y].append(Critter(initial_genes,initial_genes[1]*2,0,0))
 
 	def step(self):
 		self.vegetation = np.minimum(1.0,self.vegetation+self.vegetation_growth_rate)
@@ -53,7 +54,7 @@ class World():
 						self.crittermap[x][y].append(critter)
 
 	def critter_stats(self,pops):
-		genes = []
+		genes = [[] for i in xrange(self.num_genes)]
 		count = 0
 		mingens = Counter()
 		maxgens = Counter()
@@ -66,7 +67,8 @@ class World():
 				for crit in self.crittermap[x][y]:
 					mingens[crit.mingen] += 1
 					maxgens[crit.maxgen] += 1
-					genes.append(crit.genes[0])
+					for i in xrange(self.num_genes):
+						genes[i].append(crit.genes[i])
 		pops.append(count)
 		print "Number of critters:", count
 		print "Min generation counts:", mingens
@@ -74,23 +76,26 @@ class World():
 		return critter_grid, genes
 
 class Critter():
-	def __init__(self,genes,mingen,maxgen):
+	def __init__(self,genes,init_energy,mingen,maxgen):
 		self.genes = genes
-		self.energy = 0.5
+		self.energy = init_energy
 		self.mingen = mingen
 		self.maxgen = maxgen
 		self.hunger_cutoff = genes[0]
+		self.energy_contributed_to_offspring = genes[1]
 	def breed(self,other):
-		self.energy -= 0.25
-		other.energy -= 0.25
+		self.energy -= self.energy_contributed_to_offspring
+		other.energy -= other.energy_contributed_to_offspring
+		new_energy = self.energy_contributed_to_offspring + other.energy_contributed_to_offspring
 		new_genes = [random.choice([g1,g2,(g1+g2)/2])-0.05+0.1*random.random() for g1,g2 in zip(self.genes,other.genes)]
-		return Critter(new_genes,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
+		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
 
 def run(steps_per_redraw=1):
 	xdim = 200
 	ydim = 200
 	num_critters = 100
-	initial_genes = [.4]
+	initial_genes = [.5,0.25]
+	num_genes = len(initial_genes)
 	mate_dif_limit = 0.1
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate)
@@ -98,7 +103,7 @@ def run(steps_per_redraw=1):
 	fig, (ax1,ax2,ax3,ax4) = plt.subplots(1,4)
 	times = [-1.]*10
 	pops = []
-	gene_aves = []
+	gene_aves = [[] for i in xrange(num_genes)]
 
 	def update(i):
 		t = time.time()-start_time
@@ -108,22 +113,25 @@ def run(steps_per_redraw=1):
 		ax1.clear()
 		ax1.imshow(np.maximum(world.vegetation,critter_grid),cmap='gist_earth',interpolation='nearest')
 		ax2.clear()
-		ax2.hist(genes,50)
-		gene_ave = sum(genes)/len(genes)
-		gene_aves.append(gene_ave)
-		ax2.axvline(x=gene_ave,linewidth=4, color='r')
+		for i in xrange(num_genes):
+			ax2.hist(genes[i],50)
+		gene_ave = [sum(genes[i])/len(genes[i]) for i in xrange(num_genes)]
+		for i in xrange(num_genes):
+			gene_aves[i].append(gene_ave[i])
+		#ax2.axvline(x=gene_ave,linewidth=4, color='r')
 		ax3.clear()
 		ax3.plot(range(len(pops)),pops)
 		ax3.set_title('Population')
 		ax4.clear()
-		ax4.plot(range(len(gene_aves)),gene_aves)
+		for i in xrange(num_genes):
+			ax4.plot(range(len(gene_aves[i])),gene_aves[i])
 		ax4.set_title('Gene Average')
+
 		for i in xrange(steps_per_redraw):
 			world.step()
 
 	start_time = time.time()
 	a = anim.FuncAnimation(fig, update, frames=100000, repeat=False)
 	plt.show()
-
 
 run(100)
