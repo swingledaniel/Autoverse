@@ -3,6 +3,7 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import time
+from collections import Counter
 
 class World():
 	def __init__(self,xdim,ydim,num_critters,initial_genes,mate_dif_limit):
@@ -14,10 +15,10 @@ class World():
 		self.crittermap = [[[] for j in xrange(ydim)] for i in xrange(xdim)]
 		for i in xrange(num_critters):
 			x,y = random.randint(0,xdim-1),random.randint(0,ydim-1)
-			self.crittermap[x][y].append(Critter(initial_genes))
+			self.crittermap[x][y].append(Critter(initial_genes,0,0))
 
 	def step(self):
-		self.vegetation = np.minimum(1.0,self.vegetation+0.01)
+		self.vegetation = np.minimum(1.0,self.vegetation+0.02)
 		for x in xrange(self.xdim):
 			for y in xrange(self.ydim):
 				to_process = self.crittermap[x][y]
@@ -60,46 +61,46 @@ class World():
 
 	def count_critters(self):
 		count = 0
+		c = Counter()
+		mingens = Counter()
+		maxgens = Counter()
+		critter_grid = np.zeros((self.xdim,self.ydim))
 		for x in xrange(self.xdim):
 			for y in xrange(self.ydim):
 				count += len(self.crittermap[x][y])
-		return count
+				c[len(self.crittermap[x][y])] += 1
+				if self.crittermap[x][y]:
+					critter_grid[x][y] = 2.
+				for crit in self.crittermap[x][y]:
+					mingens[crit.mingen] += 1
+					maxgens[crit.maxgen] += 1
+		print c
+		print mingens
+		print maxgens
+		return count, critter_grid
 
 class Critter():
-	def __init__(self,genes):
+	def __init__(self,genes,mingen,maxgen):
 		self.genes = genes
 		self.energy = 0.5
+		self.mingen = mingen
+		self.maxgen = maxgen
 	def breed(self,other):
 		self.energy -= 0.25
 		other.energy -= 0.25
-		return Critter(self.genes)
-
-'''
-def run():
-	print "hello"
-	world = World(20,20,10,[1],0.3)
-
-	fig = plt.figure()
-
-	for i in xrange(100):
-		print i, world.count_critters()
-		plt.clf()
-		plt.imshow(world.vegetation)
-		fig.canvas.draw()
-		time.sleep(1.0)
-		world.step()
-'''
+		return Critter(self.genes,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
 
 def run():
-	world = World(50,50,20,[1],0.3)
+	world = World(200,200,1000,[1],0.3)
 
 	fig = plt.figure()
 	ax = fig.add_subplot(1,1,1)
 
 	def update(i):
-		print i, world.count_critters()
+		ccount, cgrid = world.count_critters()
+		print i, ccount
 		ax.clear()
-		ax.imshow(world.vegetation,cmap='Greens',interpolation='nearest')
+		ax.imshow(np.maximum(world.vegetation,cgrid),cmap='gist_earth',interpolation='nearest')
 		world.step()
 
 	a = anim.FuncAnimation(fig, update, frames=100000, repeat=False)
