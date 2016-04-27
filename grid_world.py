@@ -30,11 +30,11 @@ class World():
 						continue # kills critter
 					critter.energy -= 0.1
 					move = False
-					if critter.energy > 0.5: # critter is looking to breed
+					if critter.energy >= critter.hunger_cutoff: # critter is looking to breed
 						if to_process:
 							mate = to_process[0]
 							dif = sum([abs(gx-gy) for gx,gy in zip(critter.genes,mate.genes)])
-							if dif < self.mate_dif_limit:
+							if dif < self.mate_dif_limit and mate.energy >= mate.hunger_cutoff:
 								child = critter.breed(mate)
 								self.crittermap[x][y].append(child)
 						else:
@@ -52,7 +52,8 @@ class World():
 					else:
 						self.crittermap[x][y].append(critter)
 
-	def critter_stats(self):
+	def critter_stats(self,pops):
+		genes = []
 		count = 0
 		mingens = Counter()
 		maxgens = Counter()
@@ -65,10 +66,12 @@ class World():
 				for crit in self.crittermap[x][y]:
 					mingens[crit.mingen] += 1
 					maxgens[crit.maxgen] += 1
+					genes.append(crit.genes[0])
+		pops.append(count)
 		print "Number of critters:", count
 		print "Min generation counts:", mingens
 		print "Max generation counts:", maxgens
-		return critter_grid
+		return critter_grid, genes
 
 class Critter():
 	def __init__(self,genes,mingen,maxgen):
@@ -76,31 +79,41 @@ class Critter():
 		self.energy = 0.5
 		self.mingen = mingen
 		self.maxgen = maxgen
+		self.hunger_cutoff = genes[0]
 	def breed(self,other):
 		self.energy -= 0.25
 		other.energy -= 0.25
-		return Critter(self.genes,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
+		new_genes = [(g1+g2)/2-0.05+0.1*random.random() for g1,g2 in zip(self.genes,other.genes)]
+		return Critter(new_genes,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
 
 def run():
 	xdim = 200
 	ydim = 200
-	num_critters = 5000
-	initial_genes = [1]
-	mate_dif_limit = 0.3
+	num_critters = 500
+	initial_genes = [.4]
+	mate_dif_limit = 0.1
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate)
 
-	fig = plt.figure()
-	ax = fig.add_subplot(1,1,1)
+	fig, (ax1,ax2,ax3) = plt.subplots(1,3)
+	times = [-1.]*10
+	pops = []
 
 	def update(i):
-		print "\nStep: %d Time: %.2f seconds" % (i, time.time() - start_time)
-		critter_grid = world.critter_stats()
-		ax.clear()
-		ax.imshow(np.maximum(world.vegetation,critter_grid),cmap='gist_earth',interpolation='nearest')
+		t = time.time()-start_time
+		print "\nStep: %d, Time: %.2f seconds, Rate: %.2f steps/second" % (i, t, 10./(t-times[-10]))
+		times.append(t)
+		critter_grid, genes = world.critter_stats(pops)
+		ax1.clear()
+		ax1.imshow(np.maximum(world.vegetation,critter_grid),cmap='gist_earth',interpolation='nearest')
+		ax2.clear()
+		ax2.hist(genes,50)
+		ax2.axvline(x=sum(genes)/len(genes),linewidth=4, color='r')
+		ax3.clear()
+		ax3.plot(range(len(pops)),pops)
 		world.step()
 
-	a = anim.FuncAnimation(fig, update, frames=1000, repeat=False)
+	a = anim.FuncAnimation(fig, update, frames=100000, repeat=False)
 	plt.show()
 
 start_time = time.time()
