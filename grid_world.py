@@ -10,14 +10,13 @@ class World():
 		self.num_genes = len(initial_genes)
 		self.xdim = xdim
 		self.ydim = ydim
-		self.mate_dif_limit = mate_dif_limit
 		self.vegetation = 1.0*np.ones((xdim,ydim))
 		self.vegetation_growth_rate = vegetation_growth_rate
 		#self.dead = np.zeros(xdim,ydim)
 		self.crittermap = [[[] for j in xrange(ydim)] for i in xrange(xdim)]
 		for i in xrange(num_critters):
 			x,y = random.randint(0,xdim-1),random.randint(0,ydim-1)
-			self.crittermap[x][y].append(Critter(initial_genes,initial_genes[1]*2,0,0))
+			self.crittermap[x][y].append(Critter(initial_genes,initial_genes[1]*2,0,0,mate_dif_limit))
 
 	def step(self):
 		self.vegetation = np.minimum(1.0,self.vegetation+self.vegetation_growth_rate)
@@ -27,31 +26,26 @@ class World():
 				self.crittermap[x][y] = []
 				while to_process:
 					critter = to_process.pop()
-					if critter.energy <= 0.:
-						continue # kills critter
-					critter.energy -= 0.1
-					move = False
-					if critter.energy >= critter.hunger_cutoff: # critter is looking to breed
-						if to_process:
-							mate = to_process[0]
-							dif = sum([abs(gx-gy) for gx,gy in zip(critter.genes,mate.genes)])
-							if dif < self.mate_dif_limit and mate.energy >= mate.hunger_cutoff:
-								child = critter.breed(mate)
-								self.crittermap[x][y].append(child)
-						else:
-							move = True
-					else: # critter is looking to eat
-						if self.vegetation[x][y] > 0.2:
-							critter.energy += 0.2
-							self.vegetation[x][y] -= 0.2
-						else:
-							move = True
-					if move:
-						dx,dy = random.choice([(1,1),(1,0),(1,-1),(0,1),(0,-1),(-1,1),(-1,0),(-1,-1)])
-						nx,ny = (x+dx)%self.xdim, (y+dy)%self.ydim
-						self.crittermap[nx][ny].append(critter)
-					else:
+
+					veg_level = self.vegetation[x][y]
+					nearby_critters = to_process + self.crittermap[x][y]
+					action, child, veg_diff = critter.step(veg_level,nearby_critters)
+					
+					# action == 0: creature dies
+					# action == 1: stays in place
+					# action == 2: moves to random nearby location
+
+					if action == 1: # stays in place
 						self.crittermap[x][y].append(critter)
+					elif action == 2: # moves to random nearby location
+						dx,dy = random.choice([(1,1),(1,0),(1,-1),(0,1),(0,-1),(-1,1),(-1,0),(-1,-1)])
+						nx,ny = (x+dx)%self.xdim, (y+dy)%self.ydim # borders loop around
+						self.crittermap[nx][ny].append(critter)
+
+					if child is not None:
+						self.crittermap[x][y].append(child)
+
+					self.vegetation[x][y] += veg_diff
 
 	def critter_stats(self,pops):
 		genes = [[] for i in xrange(self.num_genes)]
@@ -76,25 +70,50 @@ class World():
 		return critter_grid, genes
 
 class Critter():
-	def __init__(self,genes,init_energy,mingen,maxgen):
+	def __init__(self,genes,init_energy,mingen,maxgen,mate_dif_limit):
 		self.genes = genes
 		self.energy = init_energy
 		self.mingen = mingen
 		self.maxgen = maxgen
-		self.hunger_cutoff = genes[0]
-		self.energy_contributed_to_offspring = genes[1]
+		self.mate_dif_limit = mate_dif_limit
+		self.hunger_cutoff = genes[0] # how much energy creature needs to consider breeding
+		self.breeding_cutoff = genes[1] # how much energy creature needs to only try to breed, not eat
+		self.energy_contributed_to_offspring = genes[2]
+
 	def breed(self,other):
 		self.energy -= self.energy_contributed_to_offspring
 		other.energy -= other.energy_contributed_to_offspring
 		new_energy = self.energy_contributed_to_offspring + other.energy_contributed_to_offspring
 		new_genes = [random.choice([g1,g2,(g1+g2)/2])-0.05+0.1*random.random() for g1,g2 in zip(self.genes,other.genes)]
-		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1)
+		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1,self.mate_dif_limit)
 
+	def step(self,veg_level,nearby_critters):
+		if self.energy <= 0.:
+			return 0, None, 0. # creature dies
+
+		self.energy -= 0.1 # energy drains
+
+		if self.energy >= self.hunger_cutoff: # has enough energy to breed
+			if nearby_critters:
+				pot_mate = nearby_critters[0]
+				if pot_mate.energy >= pot_mate.hunger_cutoff:
+					dif = sum([abs(gx-gy) for gx,gy in zip(self.genes,pot_mate.genes)])
+					if dif < self.mate_dif_limit:
+						child = self.breed(pot_mate)
+						return 1, child, 0.
+
+		if self.energy < self.breeding_cutoff: # doesn't have enough energy to justify not eating
+			if veg_level >= 0.2:
+				self.energy += 0.2
+				return 1, None, -0.2
+
+		return 2, None, 0. # couldn't do what it wanted, so moves
+	
 def run(steps_per_redraw=1):
 	xdim = 200
 	ydim = 200
 	num_critters = 100
-	initial_genes = [.6,0.5]
+	initial_genes = [.5,0.75,0.25]
 	num_genes = len(initial_genes)
 	mate_dif_limit = 0.1
 	vegetation_growth_rate = 0.02
