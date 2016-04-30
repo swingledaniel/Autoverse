@@ -102,14 +102,16 @@ class Critter():
 		self.energy -= self.energy_contributed_to_offspring
 		other.energy -= other.energy_contributed_to_offspring
 		new_energy = self.energy_contributed_to_offspring + other.energy_contributed_to_offspring
-		new_genes = [max(0,random.choice([g1,g2,(g1+g2)/2])-0.05+0.1*random.random()) for g1,g2 in zip(self.genes,other.genes)]
+		new_genes = [random.choice([g1,g2,(g1+g2)/2]) for g1,g2 in zip(self.genes,other.genes)]
+		rand = -0.1+0.2*random.random()
+		new_genes = [max(0,random.choice([g+rand,g*(1+rand)])) for g in new_genes]
 		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1,self.mate_dif_limit)
 
 	def step(self,veg_level,nearby_critters):
 		if self.energy <= 0.:
 			return 0, None, 0. # creature dies
 
-		self.energy -= 0.02 + self.veg_digestion_rate/50. + self.meat_digestion_rate/10. # energy drains
+		self.energy -= 0.02 + self.veg_digestion_rate/50. + self.meat_digestion_rate/100. # energy drains
 
 		if self.energy >= self.hunger_cutoff: # has enough energy to breed
 			if nearby_critters:
@@ -143,8 +145,8 @@ class Critter():
 		return 2, None, 0. # couldn't do what it wanted, so moves
 	
 def run(steps_per_redraw=1):
-	xdim = 60
-	ydim = 60
+	xdim = 100
+	ydim = 100
 	num_critters = 50
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
