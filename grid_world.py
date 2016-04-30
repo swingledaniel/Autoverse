@@ -159,6 +159,15 @@ def run(steps_per_redraw=1):
 	pops = []
 	gene_aves = [[] for i in xrange(num_genes)]
 
+	#gene legend dictionary for holding names
+	names = {
+	0 : 'Breedmin',
+	1 : 'Feedmax',
+	2 : 'Offspring energy contrib',
+	3 : 'Veglovin',
+	4 : 'Meatlovin'
+	}
+
 	def update(i):
 		t = time.time()-start_time
 		print "\nStep: %d, Time: %.2f seconds, Rate: %.2f steps/second" % (i*steps_per_redraw, t, 10.*steps_per_redraw/(t-times[-10]))
@@ -178,7 +187,8 @@ def run(steps_per_redraw=1):
 		ax3.set_title('Population')
 		ax4.clear()
 		for i in xrange(num_genes):
-			ax4.plot(range(len(gene_aves[i])),gene_aves[i])
+			ax4.plot(range(len(gene_aves[i])),gene_aves[i], label=names[i])
+		ax4.legend(loc='best').get_frame().set_alpha(0.5)
 		ax4.set_title('Gene Average')
 
 		for i in xrange(steps_per_redraw):
