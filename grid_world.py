@@ -17,6 +17,9 @@ class World():
 		for i in xrange(num_critters):
 			x,y = random.randint(0,xdim-1),random.randint(0,ydim-1)
 			self.crittermap[x][y].append(Critter(initial_genes,initial_genes[1]*2,0,0,mate_dif_limit))
+		self.stats_births = 0
+		self.stats_starved = 0
+		self.stats_eaten = 0
 
 	def step(self):
 		self.vegetation = np.minimum(1.0,self.vegetation+self.vegetation_growth_rate)
@@ -31,6 +34,12 @@ class World():
 					nearby_critters = to_process + self.crittermap[x][y]
 					action, child, veg_diff = critter.step(veg_level,nearby_critters)
 					
+					if action == 0:
+						if critter.energy <= -100.0:
+							self.stats_eaten += 1
+						else:
+							self.stats_starved += 1
+
 					# action == 0: creature dies
 					# action == 1: stays in place
 					# action == 2: moves to random nearby location
@@ -43,6 +52,7 @@ class World():
 						self.crittermap[nx][ny].append(critter)
 
 					if child is not None:
+						self.stats_births += 1
 						self.crittermap[x][y].append(child)
 
 					self.vegetation[x][y] += veg_diff
@@ -65,6 +75,12 @@ class World():
 						genes[i].append(crit.genes[i])
 		pops.append(count)
 		print "Number of critters:", count
+		print "Number of Births:", self.stats_births
+		print "Number of Starves:", self.stats_starved
+		print "Number of Eaten:", self.stats_eaten
+		self.stats_births = 0
+		self.stats_starved = 0
+		self.stats_eaten = 0
 		print "Min generation counts:", mingens
 		print "Max generation counts:", maxgens
 		return critter_grid, genes
@@ -79,19 +95,21 @@ class Critter():
 		self.hunger_cutoff = genes[0] # how much energy creature needs to consider breeding
 		self.breeding_cutoff = genes[1] # how much energy creature needs to only try to breed, not eat
 		self.energy_contributed_to_offspring = genes[2]
+		self.veg_digestion_rate = genes[3]
+		self.meat_digestion_rate = genes[4]
 
 	def breed(self,other):
 		self.energy -= self.energy_contributed_to_offspring
 		other.energy -= other.energy_contributed_to_offspring
 		new_energy = self.energy_contributed_to_offspring + other.energy_contributed_to_offspring
-		new_genes = [random.choice([g1,g2,(g1+g2)/2])-0.05+0.1*random.random() for g1,g2 in zip(self.genes,other.genes)]
+		new_genes = [max(0,random.choice([g1,g2,(g1+g2)/2])-0.05+0.1*random.random()) for g1,g2 in zip(self.genes,other.genes)]
 		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1,self.mate_dif_limit)
 
 	def step(self,veg_level,nearby_critters):
 		if self.energy <= 0.:
 			return 0, None, 0. # creature dies
 
-		self.energy -= 0.1 # energy drains
+		self.energy -= 0.02 + self.veg_digestion_rate/50. + self.meat_digestion_rate/10. # energy drains
 
 		if self.energy >= self.hunger_cutoff: # has enough energy to breed
 			if nearby_critters:
@@ -103,19 +121,34 @@ class Critter():
 						return 1, child, 0.
 
 		if self.energy < self.breeding_cutoff: # doesn't have enough energy to justify not eating
+			pot_veg = 0.
+			pot_meat = 0.
 			if veg_level >= 0.2:
-				self.energy += 0.2
-				return 1, None, -0.2
-
+				pot_veg = 0.2*(1-1./(1+self.veg_digestion_rate))
+				#self.energy += 0.2*self.veg_digestion_rate
+				#return 1, None, -0.2
+			if nearby_critters:
+				pot_prey = nearby_critters[0]
+				if pot_prey.energy < self.energy:
+					pot_meat = pot_prey.energy*self.meat_digestion_rate
+			if max(pot_veg,pot_meat) > 0.:
+				if pot_veg > pot_meat:
+					self.energy += pot_veg
+					return 1, None, -0.2
+				else:
+					self.energy += pot_meat
+					pot_prey.energy = -100.0
+					return 1, None, 0.
+					
 		return 2, None, 0. # couldn't do what it wanted, so moves
 	
 def run(steps_per_redraw=1):
-	xdim = 200
-	ydim = 200
-	num_critters = 100
-	initial_genes = [.5,0.75,0.25]
+	xdim = 60
+	ydim = 60
+	num_critters = 50
+	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
-	mate_dif_limit = 0.1
+	mate_dif_limit = 0.3
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate)
 
@@ -133,7 +166,7 @@ def run(steps_per_redraw=1):
 		ax1.imshow(np.maximum(world.vegetation,critter_grid),cmap='gist_earth',interpolation='nearest')
 		ax2.clear()
 		for i in xrange(num_genes):
-			ax2.hist(genes[i],50)
+			ax2.hist(genes[i],20)
 		gene_ave = [sum(genes[i])/len(genes[i]) for i in xrange(num_genes)]
 		for i in xrange(num_genes):
 			gene_aves[i].append(gene_ave[i])
