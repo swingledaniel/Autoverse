@@ -104,8 +104,7 @@ class Critter():
 		other.energy -= other.energy_contributed_to_offspring
 		new_energy = self.energy_contributed_to_offspring + other.energy_contributed_to_offspring
 		new_genes = [random.choice([g1,g2,(g1+g2)/2]) for g1,g2 in zip(self.genes,other.genes)]
-		rand = -0.1+0.2*random.random()
-		new_genes = [max(0,random.choice([g+rand,g*(1+rand)])) for g in new_genes]
+		new_genes = [max(0,random.choice([g-0.1+0.2*random.random(),g*(.9+0.2*random.random())])) for g in new_genes]
 		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1,self.mate_dif_limit, self.cannib_dif_limit)
 
 	def step(self,veg_level,nearby_critters):
@@ -158,7 +157,7 @@ def run(steps_per_redraw=1):
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
 	mate_dif_limit = 0.3
-	cannib_dif_limit = .6
+	cannib_dif_limit = 0
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit, cannib_dif_limit, vegetation_growth_rate)
 
