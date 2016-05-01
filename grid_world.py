@@ -90,6 +90,7 @@ class World():
 class Critter():
 	def __init__(self,genes,init_energy,mingen,maxgen,mate_dif_limit, cannib_dif_limit):
 		self.age = 0.
+		self.stage = 0
 		self.genes = genes
 		self.energy = init_energy
 		self.mingen = mingen
@@ -118,13 +119,14 @@ class Critter():
 		self.age += 1
 
 		if self.energy >= self.hunger_cutoff: # has enough energy to breed
-			if nearby_critters:
-				pot_mate = nearby_critters[0]
-				if pot_mate.energy >= pot_mate.hunger_cutoff:
-					dif = sum([abs(gx-gy) for gx,gy in zip(self.genes,pot_mate.genes)])
-					if dif < self.mate_dif_limit:
-						child = self.breed(pot_mate)
-						return 2, child, 0.
+			if self.stage == 2:
+				if nearby_critters:
+					pot_mate = nearby_critters[0]
+					if pot_mate.energy >= pot_mate.hunger_cutoff:
+						dif = sum([abs(gx-gy) for gx,gy in zip(self.genes,pot_mate.genes)])
+						if dif < self.mate_dif_limit:
+							child = self.breed(pot_mate)
+							return 2, child, 0.
 
 		if self.energy < self.breeding_cutoff: # doesn't have enough energy to justify not eating
 			pot_veg = 0.
@@ -141,7 +143,7 @@ class Critter():
 				dif = sum([abs(gx-gy) for gx,gy in zip(self.genes,pot_prey.genes)])
 				if dif < self.cannib_dif_limit:
 					pot_meat = 0
-				elif pot_prey.energy < self.energy:
+				elif pot_prey.energy + pot_prey.stage*pot_prey.breeding_cutoff < self.energy + self.stage*self.breeding_cutoff:
 					pot_meat = pot_prey.energy*self.meat_digestion_rate
 			if max(pot_veg,pot_meat) > 0.:
 				if pot_veg > pot_meat:
@@ -151,12 +153,16 @@ class Critter():
 					self.energy += pot_meat
 					pot_prey.energy = -100.0
 					return 1, None, 0.
+		elif self.stage < 2:
+			self.stage += 1
+			self.energy = self.hunger_cutoff
+			#self.energy /= 2
 					
 		return 2, None, 0. # couldn't do what it wanted, so moves
 
 def run(steps_per_redraw=1):
-	xdim = 100
-	ydim = 100
+	xdim = 200
+	ydim = 200
 	num_critters = 100
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
