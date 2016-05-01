@@ -53,7 +53,9 @@ class World():
 
 					if child is not None:
 						self.stats_births += 1
-						self.crittermap[x][y].append(child)
+						dx,dy = random.choice([(1,1),(1,0),(1,-1),(0,1),(0,-1),(-1,1),(-1,0),(-1,-1)])
+						nx,ny = (x+dx)%self.xdim, (y+dy)%self.ydim # borders loop around
+						self.crittermap[nx][ny].append(child)
 
 					self.vegetation[x][y] += veg_diff
 
@@ -81,8 +83,8 @@ class World():
 		self.stats_births = 0
 		self.stats_starved = 0
 		self.stats_eaten = 0
-		print "Min generation counts:", mingens
-		print "Max generation counts:", maxgens
+		#print "Min generation counts:", mingens
+		#print "Max generation counts:", maxgens
 		return critter_grid, genes
 
 class Critter():
@@ -111,7 +113,7 @@ class Critter():
 		if self.energy <= 0.:
 			return 0, None, 0. # creature dies
 
-		self.energy -= 0.02 + self.veg_digestion_rate/50. + self.meat_digestion_rate/100. # energy drains
+		self.energy -= 0.02 + self.veg_digestion_rate/50. + self.meat_digestion_rate/50. # energy drains
 
 		if self.energy >= self.hunger_cutoff: # has enough energy to breed
 			if nearby_critters:
@@ -120,7 +122,7 @@ class Critter():
 					dif = sum([abs(gx-gy) for gx,gy in zip(self.genes,pot_mate.genes)])
 					if dif < self.mate_dif_limit:
 						child = self.breed(pot_mate)
-						return 1, child, 0.
+						return 2, child, 0.
 
 		if self.energy < self.breeding_cutoff: # doesn't have enough energy to justify not eating
 			pot_veg = 0.
@@ -147,7 +149,7 @@ class Critter():
 def run(steps_per_redraw=1):
 	xdim = 100
 	ydim = 100
-	num_critters = 50
+	num_critters = 10
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
 	mate_dif_limit = 0.3
