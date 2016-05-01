@@ -89,6 +89,7 @@ class World():
 
 class Critter():
 	def __init__(self,genes,init_energy,mingen,maxgen,mate_dif_limit, cannib_dif_limit):
+		self.age = 0.
 		self.genes = genes
 		self.energy = init_energy
 		self.mingen = mingen
@@ -113,7 +114,8 @@ class Critter():
 		if self.energy <= 0.:
 			return 0, None, 0. # creature dies
 
-		self.energy -= 0.02 + self.veg_digestion_rate/50. + self.meat_digestion_rate/50. # energy drains
+		self.energy -= 0.01 + 0.00015*self.age + self.veg_digestion_rate/50. + self.meat_digestion_rate/50. # energy drains
+		self.age += 1
 
 		if self.energy >= self.hunger_cutoff: # has enough energy to breed
 			if nearby_critters:
@@ -159,7 +161,7 @@ def run(steps_per_redraw=1):
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
 	mate_dif_limit = 0.3
-	cannib_dif_limit = 0
+	cannib_dif_limit = 0.3
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit, cannib_dif_limit, vegetation_growth_rate)
 
