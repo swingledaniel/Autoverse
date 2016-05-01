@@ -6,7 +6,7 @@ import time
 from collections import Counter
 
 class World():
-	def __init__(self,xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate):
+	def __init__(self,xdim,ydim,num_critters,initial_genes,mate_dif_limit, cannib_dif_limit, vegetation_growth_rate):
 		self.num_genes = len(initial_genes)
 		self.xdim = xdim
 		self.ydim = ydim
@@ -16,7 +16,7 @@ class World():
 		self.crittermap = [[[] for j in xrange(ydim)] for i in xrange(xdim)]
 		for i in xrange(num_critters):
 			x,y = random.randint(0,xdim-1),random.randint(0,ydim-1)
-			self.crittermap[x][y].append(Critter(initial_genes,initial_genes[1]*2,0,0,mate_dif_limit))
+			self.crittermap[x][y].append(Critter(initial_genes,initial_genes[1]*2,0,0,mate_dif_limit, cannib_dif_limit))
 		self.stats_births = 0
 		self.stats_starved = 0
 		self.stats_eaten = 0
@@ -88,12 +88,13 @@ class World():
 		return critter_grid, genes
 
 class Critter():
-	def __init__(self,genes,init_energy,mingen,maxgen,mate_dif_limit):
+	def __init__(self,genes,init_energy,mingen,maxgen,mate_dif_limit, cannib_dif_limit):
 		self.genes = genes
 		self.energy = init_energy
 		self.mingen = mingen
 		self.maxgen = maxgen
 		self.mate_dif_limit = mate_dif_limit
+		self.cannib_dif_limit = cannib_dif_limit
 		self.hunger_cutoff = genes[0] # how much energy creature needs to consider breeding
 		self.breeding_cutoff = genes[1] # how much energy creature needs to only try to breed, not eat
 		self.energy_contributed_to_offspring = genes[2]
@@ -105,9 +106,8 @@ class Critter():
 		other.energy -= other.energy_contributed_to_offspring
 		new_energy = self.energy_contributed_to_offspring + other.energy_contributed_to_offspring
 		new_genes = [random.choice([g1,g2,(g1+g2)/2]) for g1,g2 in zip(self.genes,other.genes)]
-		rand = -0.1+0.2*random.random()
-		new_genes = [max(0,random.choice([g+rand,g*(1+rand)])) for g in new_genes]
-		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1,self.mate_dif_limit)
+		new_genes = [max(0,random.choice([g-0.1+0.2*random.random(),g*(.9+0.2*random.random())])) for g in new_genes]
+		return Critter(new_genes,new_energy,min(self.mingen,other.mingen)+1,max(self.maxgen,other.maxgen)+1,self.mate_dif_limit, self.cannib_dif_limit)
 
 	def step(self,veg_level,nearby_critters):
 		if self.energy <= 0.:
@@ -133,7 +133,13 @@ class Critter():
 				#return 1, None, -0.2
 			if nearby_critters:
 				pot_prey = nearby_critters[0]
-				if pot_prey.energy < self.energy:
+
+				#check if potential prey is genetically different enough
+				#if dif is too low, meat value is 0, elif energy less than own then meat formula
+				dif = sum([abs(gx-gy) for gx,gy in zip(self.genes,pot_prey.genes)])
+				if dif < self.cannib_dif_limit:
+					pot_meat = 0
+				elif pot_prey.energy < self.energy:
 					pot_meat = pot_prey.energy*self.meat_digestion_rate
 			if max(pot_veg,pot_meat) > 0.:
 				if pot_veg > pot_meat:
@@ -145,7 +151,7 @@ class Critter():
 					return 1, None, 0.
 					
 		return 2, None, 0. # couldn't do what it wanted, so moves
-	
+
 def run(steps_per_redraw=1):
 	xdim = 100
 	ydim = 100
@@ -153,8 +159,9 @@ def run(steps_per_redraw=1):
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
 	mate_dif_limit = 0.3
+	cannib_dif_limit = 0
 	vegetation_growth_rate = 0.02
-	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit,vegetation_growth_rate)
+	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit, cannib_dif_limit, vegetation_growth_rate)
 
 	fig, (ax1,ax2,ax3,ax4) = plt.subplots(1,4)
 	times = [-1.]*10
@@ -167,7 +174,8 @@ def run(steps_per_redraw=1):
 	1 : 'Feedmax',
 	2 : 'Offspring energy contrib',
 	3 : 'Veglovin',
-	4 : 'Meatlovin'
+	4 : 'Meatlovin',
+	5 : 'Cannibmax'
 	}
 
 	def update(i):
@@ -179,7 +187,7 @@ def run(steps_per_redraw=1):
 		ax1.imshow(np.maximum(world.vegetation,critter_grid),cmap='gist_earth',interpolation='nearest')
 		ax2.clear()
 		for i in xrange(num_genes):
-			ax2.hist(genes[i],20)
+			ax2.hist(genes[i],10)
 		gene_ave = [sum(genes[i])/len(genes[i]) for i in xrange(num_genes)]
 		for i in xrange(num_genes):
 			gene_aves[i].append(gene_ave[i])
