@@ -10,7 +10,7 @@ class World():
 		self.num_genes = len(initial_genes)
 		self.xdim = xdim
 		self.ydim = ydim
-		self.vegetation = 1.0*np.ones((xdim,ydim))
+		self.vegetation = 0.3*np.ones((xdim,ydim))
 		self.vegetation_growth_rate = vegetation_growth_rate
 		#self.dead = np.zeros(xdim,ydim)
 		self.crittermap = [[[] for j in xrange(ydim)] for i in xrange(xdim)]
@@ -114,7 +114,7 @@ class Critter():
 		if self.energy <= 0.:
 			return 0, None, 0. # creature dies
 
-		self.energy -= 0.01 + 0.00015*self.age + self.veg_digestion_rate/50. + self.meat_digestion_rate/50. # energy drains
+		self.energy -= 0.02 + 0.00003*self.age + self.veg_digestion_rate/50. + self.meat_digestion_rate/50. # energy drains
 		self.age += 1
 
 		if self.energy >= self.hunger_cutoff: # has enough energy to breed
@@ -157,11 +157,11 @@ class Critter():
 def run(steps_per_redraw=1):
 	xdim = 100
 	ydim = 100
-	num_critters = 10
+	num_critters = 100
 	initial_genes = [.5,0.75,0.25,1.,.0]
 	num_genes = len(initial_genes)
-	mate_dif_limit = 0.3
-	cannib_dif_limit = 0.3
+	mate_dif_limit = .3
+	cannib_dif_limit = .3
 	vegetation_growth_rate = 0.02
 	world = World(xdim,ydim,num_critters,initial_genes,mate_dif_limit, cannib_dif_limit, vegetation_growth_rate)
 
